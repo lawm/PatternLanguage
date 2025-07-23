@@ -1882,7 +1882,8 @@ namespace pl::core {
         else if (MATCHES(sequence(tkn::Literal::Identifier) && (peek(tkn::Separator::Dot) || (peek(tkn::Separator::LeftBracket, 0) && !peek(tkn::Separator::LeftBracket, 1)))))
             member = parseRValueAssignment();
         // --- Begin nested struct support ---
-        else if (sequence(tkn::Keyword::Struct, tkn::Literal::Identifier)) {
+        else if (sequence(tkn::Keyword::Struct, tkn::Literal::Identifier) ||
+                sequence(tkn::Keyword::Struct, tkn::Separator::LeftBrace)) {
             // Parse nested struct and add as member
             auto nestedStructType = parseStruct();
             if (nestedStructType == nullptr)
@@ -1895,7 +1896,8 @@ namespace pl::core {
         }
         // --- End nested struct support ---
         // --- Begin nested union support ---
-        else if (sequence(tkn::Keyword::Union, tkn::Literal::Identifier)) {
+        else if (sequence(tkn::Keyword::Union, tkn::Literal::Identifier) ||
+                sequence(tkn::Keyword::Union, tkn::Separator::LeftBrace)) {
             // Parse nested union and add as member
             auto nestedUnionType = parseUnion();
             if (nestedUnionType == nullptr)
@@ -1980,10 +1982,19 @@ namespace pl::core {
 
     // struct Identifier { <(parseMember)...> }
     hlp::safe_shared_ptr<ast::ASTNodeTypeDecl> Parser::parseStruct() {
-        const auto &typeName = getValue<Token::Identifier>(-1).get();
-        auto userDefinedTypeIdentifier = std::get_if<Token::Identifier>(&((m_curr[-1]).value));
-        if (userDefinedTypeIdentifier != nullptr)
-            userDefinedTypeIdentifier->setType(Token::Identifier::IdentifierType::UDT);
+        std::string typeName;
+        bool anon = false;
+        if (peek(tkn::Literal::Identifier, -1)) {
+            typeName = getValue<Token::Identifier>(-1).get();
+            auto userDefinedTypeIdentifier = std::get_if<Token::Identifier>(&((m_curr[-1]).value));
+            if (userDefinedTypeIdentifier != nullptr)
+                userDefinedTypeIdentifier->setType(Token::Identifier::IdentifierType::UDT);
+        } else {
+            // No identifier, generate a unique name
+            static int anonStructCounter = 0;
+            typeName = fmt::format("__anon_struct_{}", anonStructCounter++);
+            anon = true;
+        }
 
         auto typeDecl   = addType(typeName, create<ast::ASTNodeStruct>());
         if(typeDecl == nullptr)
@@ -2017,7 +2028,7 @@ namespace pl::core {
             } while (sequence(tkn::Separator::Comma));
         }
 
-        if (!sequence(tkn::Separator::LeftBrace)) {
+        if (!anon && !sequence(tkn::Separator::LeftBrace)) {
             error("Expected '{{' after struct declaration, got {}.", getFormattedToken(0));
             return nullptr;
         }
@@ -2038,10 +2049,19 @@ namespace pl::core {
 
     // union Identifier { <(parseMember)...> }
     hlp::safe_shared_ptr<ast::ASTNodeTypeDecl> Parser::parseUnion() {
-        const auto &typeName = getValue<Token::Identifier>(-1).get();
-        auto userDefinedTypeIdentifier = std::get_if<Token::Identifier>(&((m_curr[-1]).value));
-        if (userDefinedTypeIdentifier != nullptr)
-            userDefinedTypeIdentifier->setType(Token::Identifier::IdentifierType::UDT);
+        std::string typeName;
+        bool anon = false;
+        if (peek(tkn::Literal::Identifier, -1)) {
+            typeName = getValue<Token::Identifier>(-1).get();
+            auto userDefinedTypeIdentifier = std::get_if<Token::Identifier>(&((m_curr[-1]).value));
+            if (userDefinedTypeIdentifier != nullptr)
+                userDefinedTypeIdentifier->setType(Token::Identifier::IdentifierType::UDT);
+        } else {
+            // No identifier, generate a unique name
+            static int anonUnionCounter = 0;
+            typeName = fmt::format("__anon_union_{}", anonUnionCounter++);
+            anon = true;
+        }
 
         auto typeDecl  = addType(typeName, create<ast::ASTNodeUnion>());
         if (typeDecl == nullptr)
@@ -2053,7 +2073,7 @@ namespace pl::core {
 
         typeDecl->setTemplateParameters(unwrapSafePointerVector(this->parseTemplateList()));
 
-        if (!sequence(tkn::Separator::LeftBrace)) {
+        if (!anon && !sequence(tkn::Separator::LeftBrace)) {
             error("Expected '{{' after union declaration, got {}.", getFormattedToken(0));
             return nullptr;
         }
