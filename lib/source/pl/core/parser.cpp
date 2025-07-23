@@ -1888,6 +1888,14 @@ namespace pl::core {
             auto nestedStructType = parseStruct();
             if (nestedStructType == nullptr)
                 return nullptr;
+            // Check for identifier
+            if (peek(tkn::Literal::Identifier)) {
+                std::string nextName = getValue<Token::Identifier>(0).get();
+                if (nestedStructType->getName().starts_with("__anon_struct_")) {
+                    nestedStructType->setName(nextName);
+                }
+                next(); // consume the identifier
+            }
             // Add the actual struct AST node as a member
             auto structNode = nestedStructType->getType();
             if (structNode == nullptr)
@@ -1902,6 +1910,14 @@ namespace pl::core {
             auto nestedUnionType = parseUnion();
             if (nestedUnionType == nullptr)
                 return nullptr;
+            // Check for identifier
+            if (peek(tkn::Literal::Identifier)) {
+                std::string nextName = getValue<Token::Identifier>(0).get();
+                if (nestedUnionType->getName().starts_with("__anon_union_")) {
+                    nestedUnionType->setName(nextName);
+                }
+                next(); // consume the identifier
+            }
             // Add the actual union AST node as a member
             auto unionNode = nestedUnionType->getType();
             if (unionNode == nullptr)
