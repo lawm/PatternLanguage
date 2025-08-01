@@ -73,11 +73,50 @@ namespace pl::gen::fmt {
             result += R"html(<div class="pattern_language_row">)html";
             result += ::fmt::format(R"html(<div class="pattern_language_address">{:08X}</div>)html", address);
 
-            for (u64 i = address; i < runtime.getInternals().evaluator->getDataSize() && i < address + 0x10; i++) {
+            // Store variable names and their colors for this row
+            std::vector<std::pair<std::string, std::string>> varNames;
+            std::unordered_set<std::string> varNameSet; // To avoid duplicates
+
+            for (u64 i = address; i < runtime.getInternals().evaluator->getDataSize() && i < address + 0x10; i++)
+            {
                 result += generateCell(i, runtime);
+
+                // Collect variable names and colors for visible patterns
+                auto patterns = runtime.getPatternsAtAddress(i);
+                for (const auto pattern : patterns)
+                {
+                    auto visibility = pattern->getVisibility();
+                    if (visibility == pl::ptrn::Visibility::Hidden || visibility == pl::ptrn::Visibility::HighlightHidden)
+                        continue;
+
+                    // Only add if pattern starts or ends on this row
+                    u64 start = pattern->getOffset();
+                    u64 end = pattern->getOffset() + pattern->getSize();
+                    u64 rowStart = address;
+                    u64 rowEnd = std::min(address + 0x10, runtime.getInternals().evaluator->getDataSize());
+
+                    if (!(start >= rowStart && start < rowEnd) && !(end >= rowStart && end <= rowEnd))
+                        continue;
+
+                    std::string name = pattern->getVariableName();
+                    std::string color = ::fmt::format("{:08X}", hlp::changeEndianess(pattern->getColor(), std::endian::big));
+                    if (varNameSet.find(name) == varNameSet.end()) {
+                        varNames.emplace_back(name, color);
+                        varNameSet.insert(name);
+                    }
+                }
 
                 if ((i & 0x0F) == 0x07)
                     result += R"html(<div class="pattern_language_cell">&nbsp;</div>)html";
+            }
+
+            // Add variable names at the end of the row, colored
+            if (!varNames.empty()) {
+                result += R"html(<div class="pattern_language_name_area">)html";
+                for (const auto& [name, color] : varNames) {
+                    result += ::fmt::format(R"html(<span class="pattern_language_name" style="background-color: #{0};">{1}</span>)html", color, name);
+                }
+                result += R"html(</div>)html";
             }
 
             result += R"html(</div><br>)html";
@@ -111,10 +150,22 @@ namespace pl::gen::fmt {
             font-family: monospace;
         }
 
+        .pattern_language_name_area {
+            float: left;
+            padding-left: 10px;
+            font-family: monospace;
+        }
+
+        .pattern_language_name {
+            margin-right: 5px;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
         .pattern_language_cell {
             float: left;
-            padding-left: 1px;
-            padding-right: 1px;
+            padding-left: 4px;
+            padding-right: 4px;
             font-family: monospace;
         }
 
