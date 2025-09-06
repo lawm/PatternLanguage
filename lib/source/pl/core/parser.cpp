@@ -2508,6 +2508,9 @@ namespace pl::core {
                 if (initStatement == nullptr)
                     return nullptr;
 
+                if (typedefIdentifier != nullptr)
+                    typedefIdentifier->setType(Token::Identifier::IdentifierType::GlobalVariable);
+
                 compoundStatement.emplace_back(std::move(initStatement));
             }
 
