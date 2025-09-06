@@ -233,17 +233,10 @@ namespace pl::ptrn {
         [[nodiscard]] bool hasOverriddenEndian() const { return this->m_endian.has_value(); }
 
         [[nodiscard]] std::string getDisplayName() const {
-            std::string name;
             if (const auto &arguments = this->getAttributeArguments("name"); !arguments.empty())
-                name = arguments.front().toString(true);
+                return arguments.front().toString(true);
             else
-                name = this->getVariableName();
-
-            if (const Pattern* parent = this->getParent(); parent != nullptr) {
-                return parent->getDisplayName() + "." + name;
-            } else {
-                return name;
-            }
+                return this->getVariableName();
         }
         void setDisplayName(const std::string &name) { this->addAttribute("name", { name }); }
 
