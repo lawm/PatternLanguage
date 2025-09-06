@@ -148,8 +148,14 @@ namespace pl::ptrn {
             if (!hasVariableName()) {
                 if (this->m_arrayIndex.has_value())
                     return fmt::format("[{}]", m_arrayIndex.value());
-                else
+                else {
+                    if (this->getTypeName().empty()) {
+                        return fmt::format("{} @ 0x{:02X}",
+                                std::hash<const void*>()(static_cast<const void*>(this)) & 0xffff,
+                                this->getOffset());
+                    }
                     return fmt::format("{} @ 0x{:02X}", this->getTypeName(), this->getOffset());
+                }
             } else
                 return *this->m_variableName;
         }
